@@ -210,14 +210,17 @@ def _call_openai_structured(
     }
 
     with httpx.Client(timeout=settings.openai_timeout_seconds) as client:
-        response = client.post(
-            f"{_base_url(settings)}/responses",
-            headers={
-                "Authorization": f"Bearer {settings.openai_api_key}",
-                "Content-Type": "application/json",
-            },
-            json=body,
-        )
+        try:
+            response = client.post(
+                f"{_base_url(settings)}/responses",
+                headers={
+                    "Authorization": f"Bearer {settings.openai_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=body,
+            )
+        except httpx.RequestError as exc:
+            raise AIProviderResponseError(f"OpenAI-anropet misslyckades: nätverksfel ({exc})") from exc
 
     if response.status_code >= 400:
         try:
@@ -261,14 +264,17 @@ def _call_openai_text(
     }
 
     with httpx.Client(timeout=settings.openai_timeout_seconds) as client:
-        response = client.post(
-            f"{_base_url(settings)}/responses",
-            headers={
-                "Authorization": f"Bearer {settings.openai_api_key}",
-                "Content-Type": "application/json",
-            },
-            json=body,
-        )
+        try:
+            response = client.post(
+                f"{_base_url(settings)}/responses",
+                headers={
+                    "Authorization": f"Bearer {settings.openai_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=body,
+            )
+        except httpx.RequestError as exc:
+            raise AIProviderResponseError(f"OpenAI-anropet misslyckades: nätverksfel ({exc})") from exc
 
     if response.status_code >= 400:
         try:

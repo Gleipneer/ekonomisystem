@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import httpx
+
 from app import ai_services
 
 
@@ -227,3 +229,69 @@ def test_generate_analysis_answer_uses_fallback_model_when_structured_schema_fai
     assert questions == []
     assert write_intent is None
     assert captured["model"] == "gpt-fallback"
+
+
+def test_call_openai_structured_maps_request_error_to_provider_error(monkeypatch):
+    settings = _fake_settings()
+
+    class FailingClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def post(self, *args, **kwargs):
+            raise httpx.RequestError("network down")
+
+    monkeypatch.setattr(ai_services.httpx, "Client", FailingClient)
+
+    try:
+        ai_services._call_openai_structured(
+            settings,
+            model="gpt-test",
+            instructions="test",
+            payload={"x": 1},
+            response_model=ai_services.AnalysisStructuredOutput,
+            schema_name="analysis_response",
+            max_output_tokens=100,
+        )
+    except ai_services.AIProviderResponseError as exc:
+        assert "nätverksfel" in str(exc).lower()
+    else:
+        raise AssertionError("Expected AIProviderResponseError")
+
+
+def test_call_openai_text_maps_request_error_to_provider_error(monkeypatch):
+    settings = _fake_settings()
+
+    class FailingClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def post(self, *args, **kwargs):
+            raise httpx.RequestError("network down")
+
+    monkeypatch.setattr(ai_services.httpx, "Client", FailingClient)
+
+    try:
+        ai_services._call_openai_text(
+            settings,
+            model="gpt-test",
+            instructions="test",
+            payload={"x": 1},
+            max_output_tokens=100,
+        )
+    except ai_services.AIProviderResponseError as exc:
+        assert "nätverksfel" in str(exc).lower()
+    else:
+        raise AssertionError("Expected AIProviderResponseError")

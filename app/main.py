@@ -208,9 +208,19 @@ def _request_household_id(request: Request, db: Session) -> int | None:
 def ensure_household_exists(db: Session, household_id: int, request: Request | None = None):
     household = get_object_or_404(db, models.Household, household_id)
     if request is not None:
-        allowed_household_id = _request_household_id(request, db)
-        if allowed_household_id is not None and allowed_household_id != household_id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hushållet tillhör inte den inloggade användaren.")
+        user_id = getattr(request.state, "user_id", None)
+        if user_id not in {None, 999}:
+            user = db.get(models.AppUser, user_id)
+            if user is None or user.household_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Inloggad användare saknar kopplat hushåll.",
+                )
+            if user.household_id != household_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Hushållet tillhör inte den inloggade användaren.",
+                )
     return household
 
 

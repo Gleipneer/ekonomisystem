@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -11,6 +12,7 @@ from . import database, models
 from .schemas import AppUserCreate, AppUserRead, Token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class LoginRequest(BaseModel):
@@ -31,7 +33,11 @@ def register(body: AppUserCreate, db: Session = Depends(get_db)):
     existing = db.query(models.AppUser).filter_by(username=body.username).first()
     if existing is not None:
         raise HTTPException(status_code=409, detail="Användarnamn finns redan.")
-    user = models.AppUser(username=body.username, password_hash=body.password, household_id=None)
+    user = models.AppUser(
+        username=body.username,
+        password_hash=pwd_context.hash(body.password),
+        household_id=None,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -41,7 +47,7 @@ def register(body: AppUserCreate, db: Session = Depends(get_db)):
 @router.post("/token", response_model=Token)
 def issue_token(body: LoginRequest, response: Response, db: Session = Depends(get_db)):
     user = db.query(models.AppUser).filter_by(username=body.username).first()
-    if user is None or user.password_hash != body.password:
+    if user is None or not pwd_context.verify(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Fel användarnamn eller lösenord.")
     token = str(uuid4())
     session = models.AuthSession(

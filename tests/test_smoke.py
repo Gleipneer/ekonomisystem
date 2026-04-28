@@ -19,6 +19,7 @@ def load_app(tmp_path):
     os.environ["OPENAI_API_KEY"] = ""
     os.environ["OPENAI_ANALYSIS_MODEL"] = ""
     os.environ["OPENAI_INGEST_MODEL"] = ""
+    os.environ["BYPASS_AUTH"] = "true"
 
     import app.settings as settings
     settings.get_settings.cache_clear()
@@ -305,6 +306,126 @@ def test_healthz_and_home(tmp_path):
         response = client.get("/")
         assert response.status_code == 200
         assert "Ekonomi" in response.text
+
+
+def test_auth_register_hashes_password_and_login_still_works(tmp_path):
+    app = load_app(tmp_path)
+    with TestClient(app) as client:
+        register = client.post(
+            "/auth/register",
+            json={"username": "secure-user", "password": "super-secret", "household_name": None},
+        )
+        assert register.status_code == 201
+
+        import app.database as database
+        import app.models as models
+
+        db = database.SessionLocal()
+        try:
+            user = db.query(models.AppUser).filter_by(username="secure-user").first()
+            assert user is not None
+            assert user.password_hash != "super-secret"
+            assert user.password_hash.startswith("$2")
+        finally:
+            db.close()
+
+        login_ok = client.post(
+            "/auth/token",
+            json={"username": "secure-user", "password": "super-secret"},
+        )
+        assert login_ok.status_code == 200
+        assert login_ok.json()["access_token"]
+
+        login_bad = client.post(
+            "/auth/token",
+            json={"username": "secure-user", "password": "wrong"},
+        )
+        assert login_bad.status_code == 401
+
+
+def test_household_access_is_blocked_for_user_without_household(tmp_path):
+    os.environ["BYPASS_AUTH"] = "true"
+    app = load_app(tmp_path)
+    with TestClient(app) as client:
+        household = client.post(
+            "/households",
+            json={"name": "Tenant A", "currency": "SEK", "primary_country": "SE"},
+        )
+        assert household.status_code == 201
+        hid = household.json()["id"]
+
+        register = client.post(
+            "/auth/register",
+            json={"username": "unassigned-user", "password": "secret", "household_name": None},
+        )
+        assert register.status_code == 201
+
+        token = client.post(
+            "/auth/token",
+            json={"username": "unassigned-user", "password": "secret"},
+        ).json()["access_token"]
+
+        os.environ["BYPASS_AUTH"] = "false"
+        summary = client.get(
+            f"/households/{hid}/summary",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert summary.status_code == 403
+
+
+def test_household_access_is_blocked_for_wrong_household(tmp_path):
+    os.environ["BYPASS_AUTH"] = "true"
+    app = load_app(tmp_path)
+    with TestClient(app) as client:
+        first = client.post(
+            "/households",
+            json={"name": "Tenant A", "currency": "SEK", "primary_country": "SE"},
+        )
+        second = client.post(
+            "/households",
+            json={"name": "Tenant B", "currency": "SEK", "primary_country": "SE"},
+        )
+        assert first.status_code == 201
+        assert second.status_code == 201
+        hid_a = first.json()["id"]
+        hid_b = second.json()["id"]
+
+        register = client.post(
+            "/auth/register",
+            json={"username": "assigned-user", "password": "secret", "household_name": None},
+        )
+        assert register.status_code == 201
+        user_id = register.json()["id"]
+
+        import app.database as database
+        import app.models as models
+
+        db = database.SessionLocal()
+        try:
+            user = db.get(models.AppUser, user_id)
+            user.household_id = hid_a
+            db.add(user)
+            db.commit()
+        finally:
+            db.close()
+
+        token = client.post(
+            "/auth/token",
+            json={"username": "assigned-user", "password": "secret"},
+        ).json()["access_token"]
+
+        os.environ["BYPASS_AUTH"] = "false"
+        blocked = client.get(
+            f"/households/{hid_b}/summary",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert blocked.status_code == 403
+
+        allowed = client.get(
+            f"/households/{hid_a}/summary",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert allowed.status_code == 200
 
 
 def test_alembic_upgrade_head_creates_schema(tmp_path):
