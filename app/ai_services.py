@@ -1377,6 +1377,28 @@ def _apply_merchant_normalization(text: str, aliases: list[tuple[str, str]]) -> 
     return text
 
 
+def _canonicalize_ingest_source_text(
+    db: Session,
+    household_id: int,
+    raw_text: str,
+    *,
+    max_length: int = 6000,
+) -> tuple[str, bool]:
+    """Canonical source text pipeline used by both analyze and promote hash checks.
+
+    Order is intentionally fixed:
+    1) normalize text
+    2) truncate to max_length
+    3) merchant alias normalization
+    """
+    normalized = normalize_ingest_text(raw_text or "")
+    text_truncated = len(normalized) > max_length
+    limited = normalized[:max_length] if text_truncated else normalized
+    aliases = _load_merchant_aliases(db, household_id)
+    canonical = _apply_merchant_normalization(limited, aliases)
+    return canonical, text_truncated
+
+
 def analyze_ingest_input(
     db: Session,
     household_id: int,
@@ -1399,8 +1421,14 @@ def analyze_ingest_input(
         source_name=source_name,
     )
 
-    merchant_aliases = _load_merchant_aliases(db, household_id)
-    truncated_input = _apply_merchant_normalization(truncated_input, merchant_aliases)
+    truncated_input, canonical_was_truncated = _canonicalize_ingest_source_text(
+        db,
+        household_id,
+        truncated_input,
+    )
+    if canonical_was_truncated and not input_details.text_truncated:
+        input_details.text_truncated = True
+        input_details.extraction_notes.append("Texten trunkerades till 6000 tecken för att hålla tokenkostnaden nere.")
 
     input_hints = detect_input_hints(truncated_input)
     is_bank_paste = normalized_source_channel == "bank_paste" or "bank_statement_keywords" in input_hints
@@ -1551,11 +1579,21 @@ def promote_ingest_suggestions(
     if request_body.document_id is not None and resolved_document_id is not None and request_body.document_id != resolved_document_id:
         raise AIProviderResponseError("document_id matchar inte analyze-resultatet. Kör analyze igen.")
 
-    normalized_input_text = normalize_ingest_text(request_body.input_text) if request_body.input_text else None
+    normalized_input_text = None
+    if request_body.input_text:
+        normalized_input_text, _ = _canonicalize_ingest_source_text(
+            db,
+            household_id,
+            request_body.input_text,
+        )
     if resolved_document_id is not None and normalized_input_text is None:
         matched_document = _get_household_document_or_404(db, household_id, resolved_document_id)
         if matched_document.extracted_text:
-            normalized_input_text = normalize_ingest_text(matched_document.extracted_text)
+            normalized_input_text, _ = _canonicalize_ingest_source_text(
+                db,
+                household_id,
+                matched_document.extracted_text,
+            )
     current_source_hash = _compute_ingest_source_hash(
         household_id=household_id,
         source_channel=normalized_source_channel,

@@ -18,7 +18,7 @@ verifierade. AI-funktioner kräver OpenAI API-nyckel.
 | Data-In AI (klassificering + extraktion) | ✅ |
 | Hushållsassistent (read-only analys) | ✅ |
 | Bank-PDF export | ✅ |
-| Autentisering | ❌ |
+| Autentisering | ✅ (basic session/token auth) |
 | Bankintegration | ❌ |
 
 ## Snabbstart
@@ -29,7 +29,7 @@ sudo apt install python3 python3-venv tesseract-ocr tesseract-ocr-swe
 
 # Klona och starta
 git clone <repo-url>
-cd economic_system
+cd ekonomisystem
 cp .env.example .env    # Redigera: lägg till OPENAI_API_KEY
 ./scripts/start_app.sh  # Skapar venv, installerar deps, kör migrationer
 ```
@@ -71,6 +71,7 @@ Se `docs/ARCHITECTURE.md` för fullständig arkitekturdokumentation.
 
 | Dokument | Innehåll |
 |---|---|
+| [`docs/uptodate/README.md`](docs/uptodate/README.md) | Canonical current-state docs (läs först) |
 | [`docs/HANDOFF_FOR_OTHER_MODELS.md`](docs/HANDOFF_FOR_OTHER_MODELS.md) | Kondenserad AI-onboarding |
 | [`docs/SOURCE_OF_TRUTH.md`](docs/SOURCE_OF_TRUTH.md) | Kanoniskt sanningsdokument |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Teknisk arkitektur med diagram |
@@ -85,7 +86,7 @@ Se `docs/ARCHITECTURE.md` för fullständig arkitekturdokumentation.
 ## Projektstruktur
 
 ```
-economic_system/
+ekonomisystem/
 ├── app/
 │   ├── main.py           # FastAPI app (routes, workflow)
 │   ├── models.py          # SQLAlchemy ORM (17 modeller)
@@ -130,6 +131,8 @@ economic_system/
 | `ECON_AI_DEEP_ANALYSIS_MODEL` | ej satt | Modell för explicit djupanalys |
 | `ECON_AI_FALLBACK_MODEL` | ej satt | Modell för plain-text fallback vid structured schemafel |
 | `OPENAI_TIMEOUT_SECONDS` | `45` | AI-timeout |
+
+Autentisering: basic session/token auth är implementerad. Household-assignment/onboarding behöver fortsatt produktpolish.
 
 ## Licens
 

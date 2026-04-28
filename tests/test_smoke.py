@@ -1793,3 +1793,201 @@ def test_assistant_context_excludes_pending_document_review_values(tmp_path):
         assert "SECRET-DOC-CONTRACT-42" not in dumped
         assert "Top secret lender" not in dumped
         assert context["document_counts"]["drafts_pending_review"] >= 1
+
+
+def test_ingest_hash_canonicalization_allows_merchant_alias_without_false_mismatch(tmp_path, monkeypatch):
+    app = load_app(tmp_path)
+    from app import ai_services, schemas
+
+    structured = ai_services.IngestStructuredOutput(
+        classification=ai_services.IngestDocumentClassificationOutput(
+            document_type="invoice",
+            provider_name="ICA",
+            label="ICA kvitto",
+            amount=200.0,
+            currency="SEK",
+            due_date=None,
+            cadence="monthly",
+            category_hint="mat",
+            suggested_target_entity_type="recurring_cost",
+            household_relevance="high",
+            confidence=0.8,
+            confirmed_fields=["provider_name", "amount"],
+            notes=[],
+            uncertainty_reasons=[],
+        ),
+        summary="Test",
+        guidance=[],
+        suggestions=[
+            ai_services.IngestStructuredSuggestion(
+                target_entity_type="recurring_cost",
+                review_bucket="recurring_cost",
+                title="ICA",
+                rationale="Alias match",
+                confidence=0.8,
+                proposed_json='{"household_id":1,"category":"mat","amount":200,"frequency":"monthly","vendor":"ICA","mandatory":true,"variability_class":"fixed","controllability":"locked"}',
+                uncertainty_notes=[],
+            )
+        ],
+    )
+
+    monkeypatch.setattr(
+        ai_services,
+        "_call_openai_structured",
+        lambda *_a, **_kw: (structured, "gpt-test", schemas.AIUsageRead(total_tokens=10)),
+    )
+
+    with TestClient(app) as client:
+        hid = create_household_fixture(client)["household_id"]
+        alias = client.post(
+            f"/households/{hid}/merchant_aliases",
+            json={"household_id": hid, "alias": "ica maxi", "canonical_name": "ICA", "category_hint": "mat"},
+        )
+        assert alias.status_code == 201
+
+        text = "ICA MAXI 200 kr varje månad"
+        analyze = client.post(
+            f"/households/{hid}/ingest_ai/analyze",
+            json={"input_text": text, "source_channel": "text", "source_name": "ICA"},
+        )
+        assert analyze.status_code == 200
+        analysis_result_id = analyze.json()["analysis_result_id"]
+
+        promote = client.post(
+            f"/households/{hid}/ingest_ai/promote",
+            json={
+                "analysis_result_id": analysis_result_id,
+                "input_text": text,
+                "source_channel": "text",
+                "source_name": "ICA",
+            },
+        )
+        assert promote.status_code == 200
+
+
+def test_ingest_hash_canonicalization_allows_truncated_text_without_false_mismatch(tmp_path, monkeypatch):
+    app = load_app(tmp_path)
+    from app import ai_services, schemas
+
+    structured = ai_services.IngestStructuredOutput(
+        classification=ai_services.IngestDocumentClassificationOutput(
+            document_type="financial_note",
+            provider_name=None,
+            label="Lång text",
+            amount=None,
+            currency="SEK",
+            due_date=None,
+            cadence=None,
+            category_hint=None,
+            suggested_target_entity_type="recurring_cost",
+            household_relevance="medium",
+            confidence=0.6,
+            confirmed_fields=[],
+            notes=[],
+            uncertainty_reasons=[],
+        ),
+        summary="Long",
+        guidance=[],
+        suggestions=[
+            ai_services.IngestStructuredSuggestion(
+                target_entity_type="recurring_cost",
+                review_bucket="recurring_cost",
+                title="Long recurring",
+                rationale="Long text",
+                confidence=0.7,
+                proposed_json='{"household_id":1,"category":"other","amount":50,"frequency":"monthly","vendor":"Long","mandatory":true,"variability_class":"fixed","controllability":"locked"}',
+                uncertainty_notes=[],
+            )
+        ],
+    )
+
+    monkeypatch.setattr(
+        ai_services,
+        "_call_openai_structured",
+        lambda *_a, **_kw: (structured, "gpt-test", schemas.AIUsageRead(total_tokens=10)),
+    )
+
+    with TestClient(app) as client:
+        hid = create_household_fixture(client)["household_id"]
+        long_text = "A" * 7000
+        analyze = client.post(
+            f"/households/{hid}/ingest_ai/analyze",
+            json={"input_text": long_text, "source_channel": "text", "source_name": "LongSource"},
+        )
+        assert analyze.status_code == 200
+        analysis_result_id = analyze.json()["analysis_result_id"]
+
+        promote = client.post(
+            f"/households/{hid}/ingest_ai/promote",
+            json={
+                "analysis_result_id": analysis_result_id,
+                "input_text": long_text,
+                "source_channel": "text",
+                "source_name": "LongSource",
+            },
+        )
+        assert promote.status_code == 200
+
+
+def test_ingest_hash_canonicalization_still_blocks_changed_source(tmp_path, monkeypatch):
+    app = load_app(tmp_path)
+    from app import ai_services, schemas
+
+    structured = ai_services.IngestStructuredOutput(
+        classification=ai_services.IngestDocumentClassificationOutput(
+            document_type="financial_note",
+            provider_name=None,
+            label="Changed",
+            amount=None,
+            currency="SEK",
+            due_date=None,
+            cadence=None,
+            category_hint=None,
+            suggested_target_entity_type="recurring_cost",
+            household_relevance="medium",
+            confidence=0.6,
+            confirmed_fields=[],
+            notes=[],
+            uncertainty_reasons=[],
+        ),
+        summary="Changed",
+        guidance=[],
+        suggestions=[
+            ai_services.IngestStructuredSuggestion(
+                target_entity_type="recurring_cost",
+                review_bucket="recurring_cost",
+                title="Changed recurring",
+                rationale="Changed",
+                confidence=0.7,
+                proposed_json='{"household_id":1,"category":"other","amount":50,"frequency":"monthly","vendor":"Changed","mandatory":true,"variability_class":"fixed","controllability":"locked"}',
+                uncertainty_notes=[],
+            )
+        ],
+    )
+
+    monkeypatch.setattr(
+        ai_services,
+        "_call_openai_structured",
+        lambda *_a, **_kw: (structured, "gpt-test", schemas.AIUsageRead(total_tokens=10)),
+    )
+
+    with TestClient(app) as client:
+        hid = create_household_fixture(client)["household_id"]
+        analyze = client.post(
+            f"/households/{hid}/ingest_ai/analyze",
+            json={"input_text": "Original source text", "source_channel": "text", "source_name": "Source"},
+        )
+        assert analyze.status_code == 200
+        analysis_result_id = analyze.json()["analysis_result_id"]
+
+        promote = client.post(
+            f"/households/{hid}/ingest_ai/promote",
+            json={
+                "analysis_result_id": analysis_result_id,
+                "input_text": "Modified source text",
+                "source_channel": "text",
+                "source_name": "Source",
+            },
+        )
+        assert promote.status_code == 400
+        assert "matchar inte analyze-resultatet" in promote.json()["detail"]

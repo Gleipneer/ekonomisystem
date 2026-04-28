@@ -12,6 +12,7 @@ Aktuella begränsningar och nästa steg
 - `app/main.py` är stor hotspot med många ansvar i en fil.
 - `app/ai_services.py` är stor hotspot med både routing, prompting, schema och ingestlogik.
 - `app/static/app.js` är stor frontend-hotspot.
+- GitHub CI/checks var tidigare frånvarande och behöver hållas stabila efter införande.
 - Semantiskt tveksamma LLM-intents kan förekomma även när schema validerar.
 - Modellrouting finns som regelbaserad implementation; mer avancerad routingstrategi är inte verifierad som implementerad.
 - Full bankkoppling till externa banker är inte verifierad som implementerad.
@@ -29,4 +30,4 @@ Aktuella begränsningar och nästa steg
 
 ## Osäkerheter/kvarvarande risker
 
-- I denna snapshot finns körbarhetsrisk p.g.a saknade tracked källfiler i `app/analysis` trots referenser i backendkod.
+- Data-In hashcanonicalization måste hållas strikt synkron mellan analyze och promote för att undvika falska mismatch.

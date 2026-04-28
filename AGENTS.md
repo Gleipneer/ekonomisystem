@@ -70,3 +70,4 @@ SQLite som standard, ingen extern databas. Se `docs/HANDOFF_FOR_OTHER_MODELS.md`
 3. **Verifieringsdisciplin.** Kör tester efter alla ändringar.
 4. **Dokumentationsplikt.** Uppdatera docs vid alla signifikanta ändringar.
 5. **Rensa inte aggressivt.** Dokumentera varför om du tar bort något.
+6. **Använd `merge` när det passar bäst.** Vid större repoanalys/review, låt `merge` ge hotspots/sammanfattning först och komplettera med riktad kodläsning.

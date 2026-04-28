@@ -154,4 +154,7 @@ Frontend-brief för alternativa GUI ovanpå samma backend
 
 ## Osäkerheter/kvarvarande risker
 
-- Auth-routes ligger i separat router som inte finns i synlig tracked källa i detta pass; GUI-team bör verifiera aktuella `/auth/*` payloads mot OpenAPI vid körande miljö.
+- Auth-routes är implementerade i backend:
+  - `POST /auth/register`
+  - `POST /auth/token`
+- GUI bör hantera onboardingflöde där ny användare kan sakna `household_id` och därför blockeras från household-routes tills koppling är satt.

@@ -11,7 +11,10 @@ Frontendrelevant API-kontrakt baserat på faktiska routes
 
 - Middleware skyddar API-routes; bypass kan aktiveras med `BYPASS_AUTH=true` (dev/test).
 - Publica ytor: `/`, `/healthz`, docs/openapi, statiska assets, `/auth/*`.
-- Exakta `/auth/*` endpoints kommer från inkluderad router (`app.include_router(auth.router)`), men router-källan är inte synlig i tracked tree i detta pass. Verifiera i OpenAPI i runtime-miljö.
+- Auth-endpoints:
+  - `POST /auth/register` - registrera användare.
+  - `POST /auth/token` - login och token/session.
+- Nyregistrerad användare med `household_id=None` blockeras från household-routes tills household-koppling finns.
 
 ## Bas/endpoints
 
@@ -136,4 +139,4 @@ Gemensamt kontrakt:
 
 ## Osäkerheter/kvarvarande risker
 
-- Auth-routerns exakta endpointlista kan inte verifieras från tracked källfiler i detta pass; verifiera via `/openapi.json` i körande miljö innan GUI integreras mot `/auth/*`.
+- Onboardingflödet för att tilldela `household_id` efter registrering är fortfarande en produktfråga för GUI/backoffice.

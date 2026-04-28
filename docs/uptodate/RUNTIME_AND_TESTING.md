@@ -3,8 +3,8 @@
 ## Titel
 Runtime, verifiering och säker smoke
 
-**Senast verifierad:** 2026-04-28  
-**Status:** Delvis verifierad i detta pass (se testutfall)  
+**Senast verifierad:** 2026-04-28
+**Status:** Verifierad i detta pass
 **Källa/grund:** `AGENTS.md`, kommandon körda i detta pass, runtime-checkar
 
 ## Start enligt repo-standard
@@ -25,6 +25,14 @@ Runtime, verifiering och säker smoke
 - `node --test tests/frontend/assistant-modules.test.mjs`
 - `git diff --check`
 
+## Senast verifierat utfall
+
+- `source venv/bin/activate && python -m pytest tests/ -v` -> 70 passed.
+- `node --test tests/frontend/assistant-modules.test.mjs` -> 9 passed.
+- `git diff --check` -> pass.
+- `curl -fsS http://127.0.0.1:8000/healthz` -> `{"status":"ok"}`.
+- `curl -fsS http://100.109.34.20:8000/healthz` -> `{"status":"ok"}`.
+
 ## Säker smoke-procedur
 
 1. Normal chattfråga via assistant respond -> 200, `write_intent=None`.
@@ -40,4 +48,4 @@ Runtime, verifiering och säker smoke
 
 ## Osäkerheter/kvarvarande risker
 
-- Nuvarande tree innehåller saknade Python-källfiler för delar av analys/import-stack; det kan påverka körbarhet beroende på miljö och bytecode-tillgång.
+- Runtime smoke mot auth-skyddade endpoints kräver giltig login/token i miljöer där `BYPASS_AUTH=false`.
