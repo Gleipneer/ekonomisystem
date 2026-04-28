@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ekonomi</title>
+  <link rel="stylesheet" href="/assets/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <div id="sidebarOverlay" class="sidebar-overlay" hidden></div>
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-head">
+        <h1>Ekonomi</h1>
+        <button id="closeSidebarButton" class="icon-button mobile-only" type="button" aria-label="Stäng meny">✕</button>
+      </div>
+      <nav id="mainNav" class="sidebar-nav" aria-label="Huvudnavigation"></nav>
+      <div id="assistantNav" class="sidebar-footer"></div>
+    </aside>
+
+    <div class="app-main">
+      <header class="topbar">
+        <button id="menuButton" class="icon-button mobile-only" type="button" aria-label="Öppna meny">☰</button>
+        <div class="topbar-spacer"></div>
+        <label class="topbar-select">
+          <span>Aktivt hushåll</span>
+          <select id="householdSelect" aria-label="Aktivt hushåll"></select>
+        </label>
+        <button id="refreshButton" class="ghost compact" type="button">Uppdatera</button>
+        <span id="dateStamp" class="date-stamp"></span>
+      </header>
+
+      <main id="pageContent" class="page-content"></main>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="/assets/app.js"></script>
+</body>
+</html>

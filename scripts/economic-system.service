@@ -1,0 +1,30 @@
+[Unit]
+Description=Household Economics System
+After=network.target
+Documentation=file:///opt/economic_system/docs/OPERATIONS.md
+
+[Service]
+Type=simple
+User=joakim
+Group=joakim
+WorkingDirectory=/opt/economic_system
+Environment="PATH=/opt/economic_system/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStartPre=/opt/economic_system/venv/bin/python -m alembic upgrade head
+ExecStart=/opt/economic_system/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=economic-system
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/economic_system/database.db
+ReadWritePaths=/opt/economic_system/uploaded_files
+ReadWritePaths=/opt/economic_system/logs
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
